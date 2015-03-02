@@ -4,80 +4,93 @@
 
 define((require, exports, module) => {
 
-'use strict';
+  'use strict';
 
-const os = navigator.platform.startsWith('Win') ? 'windows' :
-           navigator.platform.startsWith('Mac') ? 'osx' :
-           navigator.platform.startsWith('Linux') ? 'linux' :
-           '';
+  const os = navigator.platform.startsWith('Win') ? 'windows' :
+             navigator.platform.startsWith('Mac') ? 'osx' :
+             navigator.platform.startsWith('Linux') ? 'linux' :
+             '';
 
-const readModifiers = ({metaKey, shiftKey, altKey, ctrlKey}) => {
-  const modifiers = [];
-  if (metaKey) {
-    modifiers.push("Meta");
-  }
-  if (ctrlKey) {
-    modifiers.push("Control");
-  }
-  if (altKey) {
-    modifiers.push("Alt");
-  }
-  if (shiftKey) {
-    modifiers.push("Shift");
-  }
-  return modifiers;
-};
-exports.readModifiers = readModifiers;
-
-
-const readKey = key => readKey.table[key] || key;
-readKey.table = Object.assign(Object.create(null), {
-  'ctrl': 'control',
-  'accel': os == 'osx' ? 'meta' : 'control',
-  'ArrowLeft': 'left',
-  'ArrowRight': 'right',
-  'ArrowUp': 'up',
-  'ArrowDown': 'down',
-  'esc': 'escape'
-});
-exports.readKey = readKey;
-
-const readChord = input =>
-  input.trim().
-  toLowerCase().
-  split(/\s+/).
-  map(readKey).
-  sort().
-  join(" ");
-exports.readChord = readChord;
-
-const writeChord = event =>
-  [...new Set([...readModifiers(event), readKey(event.key)])].
-    join(" ").
-    toLowerCase().
-    split(" ").
-    sort().
-    join(" ");
-exports.writeChord = writeChord;
-
-
-const KeyBindings = (handlers) => {
-  const bindings = Object.create(null);
-  Object.keys(handlers).forEach(key => {
-    bindings[readChord(key)] = handlers[key];
-  });
-
-  return (...args) => event => {
-    if (event) {
-      const chord = writeChord(event);
-      const binding = bindings[chord];
-      if (binding) {
-        binding(...args);
+  const readModifiers = ({type, metaKey, shiftKey, altKey, ctrlKey}) => {
+    const modifiers = [];
+    // Modifier fields indicate if relevant modifier is pressed, in case
+    // of 'keyup' event including those does not make sense.
+    if (type != 'keyup') {
+      if (metaKey) {
+        modifiers.push('Meta');
+      }
+      if (ctrlKey) {
+        modifiers.push('Control');
+      }
+      if (altKey) {
+        modifiers.push('Alt');
+      }
+      if (shiftKey) {
+        modifiers.push('Shift');
       }
     }
-    return event;
+    return modifiers;
+  };
+
+
+  const readKey = key => readKey.table[key] || key;
+  readKey.table = Object.assign(Object.create(null), {
+    'ctrl': 'control',
+    'accel': os == 'osx' ? 'meta' : 'control',
+    'ArrowLeft': 'left',
+    'ArrowRight': 'right',
+    'ArrowUp': 'up',
+    'ArrowDown': 'down',
+    'esc': 'escape'
+  });
+
+  const readChord = input =>
+    input.trim().
+    toLowerCase().
+    split(/\s+/).
+    map(readKey).
+    sort().
+    join(' ');
+
+  const writeChord = event =>
+    [...new Set([...readModifiers(event), readKey(event.key)])].
+      join(' ').
+      toLowerCase().
+      split(' ').
+      sort().
+      join(' ');
+
+
+  const KeyBindings = (handlers) => {
+    const bindings = Object.create(null);
+    Object.keys(handlers).forEach(key => {
+      bindings[readChord(key)] = handlers[key];
+    });
+
+    return (...args) => event => {
+      if (event) {
+        const chord = writeChord(event);
+        const binding = bindings[chord];
+
+        if (window.debug) {
+          console.log(`${event.type}: ${chord} @ ${event.timeStamp}`);
+        }
+
+        if (binding) {
+          binding(...args);
+        }
+      }
+      return event;
+    }
   }
-}
-exports.KeyBindings = KeyBindings;
+
+
+  // Exports:
+
+  exports.readModifiers = readModifiers;
+  exports.readKey = readKey;
+  exports.readChord = readChord;
+  exports.writeChord = writeChord;
+  exports.KeyBindings = KeyBindings;
 
 });

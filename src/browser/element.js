@@ -3,21 +3,18 @@
  * file, you can obtain one at http://mozilla.org/mpl/2.0/. */
 
 define((require, exports, module) => {
-  "use strict";
 
-  const React = require("react");
+  'use strict';
+
+  const React = require('react');
 
   const isPreMountHook = field => field && field.mount;
-  exports.isPreMountHook = isPreMountHook;
 
   const isPostMountHook = field => field && field.mounted;
-  exports.isPostMountHook = isPostMountHook;
 
   const isUpdateHook = field => field && field.write;
-  exports.isUpdateHook = isUpdateHook;
 
   const isConstractorHook = field => field && field.construct;
-  exports.isConstractorHook = isConstractorHook;
 
   const Element = (name, fields={}) => {
     // In react you can actually define custom HTML element it's
@@ -88,36 +85,32 @@ define((require, exports, module) => {
     })
     return React.createFactory(Type);
   };
-  exports.Element = Element;
 
-  // Option can be used to define attribute on the element
-  // that is set once before element is inserted into a
-  // document (mounted). Changes to this option are ignored
-  // & in general use of `Attribute` is preferred, this should
-  // be reserved only for attributes changes to which aren't picked
-  // up after node is in the tree.
-  // Example: Element("iframe", { browser: Option("mozbrowser") })
-  const Option = function(name) {
-    if (!(this instanceof Option)) {
-      return new Option(name);
-    }
+  // BeforeAppendAttribute can be used to define attribute on the
+  // element that is set once before element is inserted into a
+  // document (mounted). Changes to this property are ignored &
+  // in general use of `Attribute` is preferred, this should be
+  // reserved only for attributes changes to which aren't picked up
+  // after node is in the tree.
+  // Example: Element('iframe', { browser: BeforeAppendAttribute('mozbrowser') })
+  const BeforeAppendAttribute = function(name) { if (!(this instanceof BeforeAppendAttribute)) {
+  return new BeforeAppendAttribute(name); }
 
     this.name = name;
   }
-  Option.prototype = {
-    constructor: Option,
+  BeforeAppendAttribute.prototype = {
+    constructor: BeforeAppendAttribute,
     mount(node, value) {
       node.setAttribute(this.name, value);
     }
   };
-  Element.Option = Option;
-  exports.Option = Option;
+  Element.BeforeAppendAttribute = BeforeAppendAttribute;
 
   // Attribute can be used to define field mapped to a
   // DOM attribute with a given `name`. If the field is
   // set to `undefined` or `null` attribute is removed
   // othrewise it's set to given value.
-  // Example: Element("hbox", {flex: Attribute("flex")})
+  // Example: Element('hbox', {flex: Attribute('flex')})
   const Attribute = function(name) {
     if (!(this instanceof Attribute)) {
       return new Attribute(name);
@@ -136,43 +129,40 @@ define((require, exports, module) => {
       if (present != past) {
         if (present == void(0)) {
           node.removeAttribute(this.name);
-        }
-        else {
+        } else {
           node.setAttribute(this.name, present);
         }
       }
     }
   }
   Element.Attribute = Attribute;
-  exports.Attribute = Attribute;
 
-  // Field can be used to define fields that can't be
-  // mapped to an attribute in the DOM. Field is defined
+  // VirtualAttribute can be used to define fields that can't be
+  // mapped to an attribute in the DOM. VirtualAttribute is defined
   // by providing a function that will be invoked target
   // `node` `current` value & `past` value and it's supposed
   // to reflect changes in the DOM. Note that on initial
   // render `past` will be `void(0)`.
   //
   // Example:
-  // Element("iframe", {focused: (node, current, past) => {
+  // Element('iframe', {focused: (node, current, past) => {
   //   if (current) {
   //     node.focus()
   //   }
   // }})
-  const Field = function(write) {
-    if (!(this instanceof Field)) {
-      return new Field(write);
+  const VirtualAttribute = function(write) {
+    if (!(this instanceof VirtualAttribute)) {
+      return new VirtualAttribute(write);
     }
     this.write = write;
   };
-  Field.prototype = {
+  VirtualAttribute.prototype = {
     constructor: Attribute,
     mounted(node, value) {
       this.write(node, value, void(0));
     }
   };
-  Element.Field = Field;
-  exports.Field = Field;
+  Element.VirtualAttribute = VirtualAttribute;
 
   // Event can be used to define event handler fields, for
   // the given event `type`. When event of that type occurs
@@ -181,7 +171,7 @@ define((require, exports, module) => {
   // second argument, in which case event handler will be
   // invoked with `read(event)` instead of `event`.
   // Example:
-  // Element("iframe", {onTitleChange: Event("mozbrowsertitlechange")})
+  // Element('iframe', {onTitleChange: Event('mozbrowsertitlechange')})
   const Event = function(type, read, capture=false) {
     if (!(this instanceof Event)) {
       return new Event(type, read);
@@ -211,7 +201,6 @@ define((require, exports, module) => {
     }
   };
   Element.Event = Event;
-  exports.Event = Event;
 
   // CapturedEvent can be used same as `Event` with a difference
   // that events listeners will be added with a capture `true`.
@@ -226,5 +215,45 @@ define((require, exports, module) => {
   }
   CapturedEvent.prototype = Event.prototype;
   Element.CapturedEvent = CapturedEvent;
+
+  const VirtualEvent = function(setup) {
+    if (!(this instanceof VirtualEvent)) {
+      return new VirtualEvent(setup);
+    }
+
+    this.setup = setup;
+  }
+  VirtualEvent.prototype = {
+    constructor: VirtualEvent,
+    construct() {
+      return new this.constructor(this.setup);
+    },
+    mounted(node, handler) {
+      this.write(node, handler);
+      this.setup(node, this.handleEvent.bind(this));
+    },
+    write(node, present) {
+      this.handler = present;
+    },
+    handleEvent(event) {
+      if (this.handler) {
+        this.handler(event);
+      }
+    }
+  };
+  Element.VirtualEvent = VirtualEvent;
+
+  // Exports:
+
+  exports.isPreMountHook = isPreMountHook;
+  exports.isPostMountHook = isPostMountHook;
+  exports.isUpdateHook = isUpdateHook;
+  exports.isConstractorHook = isConstractorHook;
+  exports.Element = Element;
+  exports.BeforeAppendAttribute = BeforeAppendAttribute;
+  exports.Attribute = Attribute;
+  exports.VirtualAttribute = VirtualAttribute;
+  exports.Event = Event;
   exports.CapturedEvent = CapturedEvent;
+  exports.VirtualEvent = VirtualEvent;
 });

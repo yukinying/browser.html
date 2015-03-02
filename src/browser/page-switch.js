@@ -3,36 +3,49 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 define((require, exports, moudle) => {
-'use strict';
 
-const {DOM} = require('react');
-const Component = require('omniscient');
-const url = require('./util/url');
-const {Deck} = require('./deck');
-const {select, remove} = require('./deck/actions');
+  'use strict';
 
-const readThumbnailURI = uri =>
-  'none' && `url(https://raw.githubusercontent.com/gordonbrander/website-tiles/master/${url.getDomainName(uri)}.png)`;
+  const {DOM} = require('react');
+  const Component = require('omniscient');
+  const url = require('./util/url');
+  const {Deck} = require('./deck');
+  const {isSelected} = require('./deck/actions');
+  const ClassSet = require('./util/class-set');
 
-const equals = x => y => x.equals(y)
+  const readThumbnailURI = uri =>
+    'none' && `url(/tiles/${url.getDomainName(uri)}.png)`;
 
-const Tab = Component(({items, item}) =>
-  DOM.div({
-    key: `tab-${item.get('id')}`,
-    className: 'tab' +
-               (item.get('isSelected') ? ' selected' : ''),
-    style: {
-      backgroundImage: readThumbnailURI(item.get('location'))
-    },
-    onMouseDown: event => select(items, equals(item)),
-    onMouseUp: event => {
-      if (event.button == 1) {
-        event.stopPropagation();
-        remove(items, equals(item));
+  const Tab = Component('Tab', ({item: webViewerCursor, onSelect, onActivate, onClose}) =>
+    DOM.div({
+      className: ClassSet({
+        tab: true,
+        selected: isSelected(webViewerCursor)
+      }),
+      onMouseOver: event => onSelect(webViewerCursor),
+      onMouseDown: event => onActivate(),
+      onMouseUp: event => {
+        if (event.button == 1) {
+          event.stopPropagation();
+          onClose(webViewerCursor);
+        }
       }
-    }
-  }));
-exports.Tab = Tab;
-Tab.Deck = Deck(Tab);
+    }, [
+      DOM.span({
+        key: 'thumbnail',
+        className: 'tab-thumbnail',
+        style: {backgroundImage: readThumbnailURI(webViewerCursor.get('location'))},
+      }),
+      DOM.div({
+        key: 'close-button',
+        onClick: event => onClose(webViewerCursor),
+        className: "tab-close-button fa fa-times",
+      })
+    ]));
+  Tab.Deck = Deck(Tab);
+
+  // Exports:
+
+  exports.Tab = Tab;
 
 });

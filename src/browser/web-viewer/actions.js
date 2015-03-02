@@ -4,60 +4,104 @@
 
 define((require, exports, module) => {
 
-'use strict';
+  'use strict';
 
-const {fromJS} = require('immutable');
-const uuid = require('uuid');
+  const {fromJS} = require('immutable');
+  const uuid = require('uuid');
 
-const initial = fromJS({
-  zoom: 1,
-  readyState: null,
-  loading: false,
-  isFocused: false,
-  isSelected: false,
-  input: null,
-  uri: null,
-  location: null,
-  title: null,
-  icons: {},
-  meta: {},
-  backgroundColor: null,
-  securityState: 'insecure',
-  securityExtendedValidation: false,
-  canGoBack: false,
-  canGoForward: false
-});
+  const initial = fromJS({
+    // Zoom level of the web content.
+    zoom: 1,
+    // State of the web content:
+    // 'loading'|'loaded'|'stop'|'reload'|'goBack'|'goForward'
+    readyState: null,
+    // `true` if web content is currently loading.
+    isLoading: false,
+    // Position of the progressbar (0..1)
+    progress: 1,
+    // Has the server replied yet
+    isConnecting: false,
+    // When the server replied first (while loading)
+    connectedAt: null,
+    // `true` if web content has a focus.
+    isFocused: false,
+    // `true` if this is currently active web viewer, in other words
+    // if this is a web viewer currently displayed.
+    isActive: false,
+    // `true` if this is currently selected web viewer. In most times
+    // is in sync with `isActive` although it does gets out of sync
+    // during tab switching when user is seleceting tab to switch to.
+    isSelected: false,
+    // Text typed into the address bar.
+    input: null,
+    // URI that web viewer was navigated to. Note that this does not
+    // represent uri that is currently loaded.
+    uri: null,
+    // Currently loaded `URI` in a web viewer.
+    location: null,
+    // Currently loaded content's title.
+    title: null,
+    // Icons from the loaded web content.
+    icons: {},
+    // Metadata of the loaded web content.
+    meta: {},
+    // Web content color info, should probably be moved elsewhere.
+    backgroundColor: null,
+    foregroundColor: null,
+    isDark: false,
+    // Web content network security info.
+    securityState: 'insecure',
+    securityExtendedValidation: false,
+    // Flags indicating if web viewer can navigate back / forward.
+    canGoBack: false,
+    canGoForward: false
+  });
 
-const open = (options={}) => initial.merge({id: uuid()})
-                                    .merge(options);
-exports.open = open;
+  // Creates a fresh web viewer structure with unique id.
+  const open = (options={}) => initial.merge({id: uuid()})
+                                      .merge(options);
 
-const reload = viewer => viewer.set('readyState', 'reload');
-exports.reload = reload;
+  // Creates a web viewer state that will trigger a content reload.
+  const reload = viewer => viewer.set('readyState', 'reload');
 
-const stop = viewer => viewer.set('readyState', 'stop');
-exports.stop = stop;
+  // Creates a web viewer state that will stop a content load.
+  const stop = viewer => viewer.set('readyState', 'stop');
 
-const goBack = viewer => viewer.set('readyState', 'goBack');
-exports.goBack = goBack;
+  // Creates a web viewer state that will trigger a navigation back.
+  const goBack = viewer => viewer.set('readyState', 'goBack');
 
-const goForward = viewer => viewer.set('readyState', 'goForward');
-exports.goForward = goForward;
+  // Creates a web viewer state that will trigger a navigation forward.
+  const goForward = viewer => viewer.set('readyState', 'goForward');
 
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2;
-const ZOOM_STEP = 0.1;
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 2;
+  const ZOOM_STEP = 0.1;
 
-const zoomIn = viewer =>
-  viewer.update('zoom', zoom => Math.min(ZOOM_MAX, zoom + ZOOM_STEP));
-exports.zoomIn = zoomIn;
+  // Creates a web viewer state that will zoom in content step further.
+  const zoomIn = viewer =>
+    viewer.update('zoom', zoom => Math.min(ZOOM_MAX, zoom + ZOOM_STEP));
 
-const zoomOut = viewer =>
-  viewer.update('zoom', zoom => Math.max(ZOOM_MIN, zoom - ZOOM_STEP));
-exports.zoomOut = zoomOut;
+  // Creates a web viewer state that will zoom out content step further.
+  const zoomOut = viewer =>
+    viewer.update('zoom', zoom => Math.max(ZOOM_MIN, zoom - ZOOM_STEP));
 
-const zoomReset = viewer =>
-  viewer.set('zoom', 1);
-exports.zoomReset = zoomReset;
+  // Creates a web viewer state that will reset content zoom level.
+  const zoomReset = viewer =>
+    viewer.set('zoom', initial.get('zoom'));
+
+  const title = viewer =>
+    viewer.get('title') || viewer.get('location') || viewer.get('uri');
+
+  // Exports:
+
+  exports.open = open;
+  exports.reload = reload;
+  exports.stop = stop;
+  exports.goBack = goBack;
+  exports.goForward = goForward;
+  exports.zoomIn = zoomIn;
+  exports.zoomOut = zoomOut;
+  exports.zoomReset = zoomReset;
+  exports.title = title;
 
 });

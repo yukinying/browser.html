@@ -4,21 +4,22 @@
 
 define((require, exports, module) => {
 
-"use strict";
+  'use strict';
 
-const {Field} = require("./element");
+  const {VirtualAttribute} = require('./element');
 
-const isFocused = new Field((node, current, past) => {
-  if (current != past) {
-    if (current) {
-      node.focus();
+  const isFocused = new VirtualAttribute((node, current, past) => {
+    if (current != past) {
+      if (current) {
+        node.focus();
+      } else {
+        node.blur();
+      }
     }
-    else {
-      node.blur();
-    }
-  }
-});
-exports.isFocused = isFocused;
+  });
 
+  // Exports:
+
+  exports.isFocused = isFocused;
 
 });
