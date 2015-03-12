@@ -10,6 +10,8 @@ define((require, exports, module) => {
   const uuid = require('uuid');
 
   const initial = fromJS({
+    // What the user wrote in the locationbar for this specific view
+    userInput: '',
     // Zoom level of the web content.
     zoom: 1,
     // State of the web content:
@@ -17,8 +19,6 @@ define((require, exports, module) => {
     readyState: null,
     // `true` if web content is currently loading.
     isLoading: false,
-    // Position of the progressbar (0..1)
-    progress: 1,
     // Has the server replied yet
     isConnecting: false,
     // When the server replied first (while loading)

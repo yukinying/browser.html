@@ -7,13 +7,19 @@ define((require, exports, module) => {
 
   const {DOM} = require('react');
   const Component = require('omniscient');
-  const dispatch = require('shims/omniscient-dispatch');
 
-  const renderItem = (Item, item, options) =>
-    Item(Object.assign({}, options, {key: item.get('id'), item, items: null}));
-
-  const Deck = Item => Component('Deck', [dispatch], options =>
-    DOM.div(options, options.items.map(item => renderItem(Item, item, options))));
+  const Deck = (Item, order) => Component('Deck', (options, handlers) => {
+    const items = order ? options.items.sortBy(order) : options.items;
+    return DOM.div(options, items.map(item => Item({
+      key: item.get('id'),
+      // Hack to force re-rendering when items get re-arranged, workaround
+      // for a following bugs:
+      // https://github.com/omniscientjs/omniscient/issues/89
+      // https://github.com/facebook/immutable-js/issues/370
+      index: options.items.indexOf(item),
+      item
+    }, handlers)))
+  });
 
   // Exports:
 

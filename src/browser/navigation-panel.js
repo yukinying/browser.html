@@ -10,11 +10,18 @@ define((require, exports, module) => {
   const Component = require('omniscient');
   const {InputVirtualAttribute} = require('./editable');
   const {Element} = require('./element');
-  const {navigateTo, showTabStrip, focus} = require('./actions');
+  const {navigateTo, showTabStrip, blur, focus} = require('./actions');
   const {KeyBindings} = require('./keyboard');
   const url = require('./util/url');
   const {ProgressBar} = require('./progressbar');
   const ClassSet = require('./util/class-set');
+  const {throttle} = require('lang/functional');
+  let {computeSuggestions, resetSuggestions} = require('./awesomebar');
+
+  computeSuggestions = throttle(computeSuggestions, 200);
+
+  const sendEventToChrome = type => dispatchEvent(new CustomEvent('mozContentEvent',
+    { bubbles: true, cancelable: false, detail: { type }}))
 
   const WindowControls = Component('WindowControls', ({theme}) =>
     DOM.div({className: 'windowctrls'}, [
@@ -22,35 +29,36 @@ define((require, exports, module) => {
                style: theme.windowCloseButton,
                title: 'close',
                key: 'close',
-               onClick: event => window.close()}),
+               onClick: event => sendEventToChrome('shutdown-application')
+      }),
       DOM.div({className: 'windowctrl win-min-button',
                style: theme.windowMinButton,
                title: 'minimize',
                key: 'minimize',
-               onClick: event => window.minimize()}),
+               onClick: event => sendEventToChrome('minimize-native-window')
+      }),
       DOM.div({className: 'windowctrl win-max-button',
                style: theme.windowMaxButton,
                title: 'maximize',
                key: 'maximize',
-               onClick: event => {
-                 if (document.mozFullScreenElement) {
-                   document.mozCancelFullScreen();
-                 } else {
-                   document.body.mozRequestFullScreen();
-                 }
-               }})
+               onClick: event => sendEventToChrome('toggle-fullscreen-native-window')
+      })
     ]));
 
-  const inputBindings = KeyBindings({'escape': focus});
+  const inputBindings = KeyBindings({'escape': (inputCursor, webViewerCursor) => {
+    focus(webViewerCursor);
+    // webViewer might have nothing to focus. So let's blur the input just
+    // in case.
+    blur(inputCursor);
+  }});
 
 
   const NavigationControls = Component('NavigationControls', ({inputCursor, tabStripCursor,
-                                         webViewerCursor, theme}) =>
+                                         webViewerCursor, suggestionsCursor, theme}) =>
     DOM.div({
       className: 'locationbar',
       onMouseEnter: event => showTabStrip(tabStripCursor)
     }, [
-      ProgressBar({key: 'progressbar', webViewerCursor, theme}),
       DOM.div({className: 'backbutton',
                style: theme.backButton,
                key: 'back',
@@ -60,16 +68,28 @@ define((require, exports, module) => {
         className: 'urlinput',
         style: theme.urlInput,
         placeholder: 'Search or enter address',
-        value: inputCursor.get('value') || webViewerCursor.get('location'),
+        value: webViewerCursor.get('userInput'),
         type: 'text',
         submitKey: 'Enter',
         isFocused: inputCursor.get('isFocused'),
         selection: inputCursor.get('isFocused'),
-        onFocus: _ => inputCursor.set('isFocused', true),
-        onBlur: _ => inputCursor.set('isFocused', false),
-        onChange: event => inputCursor.set('value', event.target.value),
-        onSubmit: event => navigateTo({inputCursor, webViewerCursor: webViewerCursor}, event.target.value, true),
-        onKeyUp: inputBindings(webViewerCursor),
+        onFocus: event => {
+          computeSuggestions(event.target.value, suggestionsCursor);
+          inputCursor.set('isFocused', true);
+        },
+        onBlur: event => {
+          resetSuggestions(suggestionsCursor);
+          inputCursor.set('isFocused', false);
+        },
+        onChange: event => {
+          computeSuggestions(event.target.value, suggestionsCursor);
+          webViewerCursor.set('userInput', event.target.value);
+        },
+        onSubmit: event => {
+          resetSuggestions(suggestionsCursor);
+          navigateTo({inputCursor, webViewerCursor: webViewerCursor}, event.target.value, true)
+        },
+        onKeyUp: inputBindings(inputCursor, webViewerCursor),
       }),
       DOM.p({key: 'page-info',
              className: 'pagesummary',
@@ -97,7 +117,8 @@ define((require, exports, module) => {
                onClick: event => webViewerCursor.set('readyState', 'stop')}),
     ]));
 
-  const NavigationPanel = Component('NavigationPanel', ({key, inputCursor, tabStripCursor, webViewerCursor, title, theme}) => {
+  const NavigationPanel = Component('NavigationPanel', ({key, inputCursor, tabStripCursor,
+                                     webViewerCursor, suggestionsCursor, title, rfaCursor, theme}) => {
     return DOM.div({
       key,
       style: theme.navigationPanel,
@@ -113,7 +134,8 @@ define((require, exports, module) => {
     }, [
       WindowControls({key: 'controls', theme}),
       NavigationControls({key: 'navigation', inputCursor, tabStripCursor,
-                          webViewerCursor, title, theme}),
+                          webViewerCursor, suggestionsCursor, title, theme}),
+      ProgressBar({key: 'progressbar', rfaCursor, webViewerCursor, theme}),
       DOM.div({key: 'spacer', className: 'freeendspacer'})
     ])
   });

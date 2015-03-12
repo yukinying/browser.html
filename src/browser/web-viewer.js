@@ -15,14 +15,13 @@ define((require, exports, module) => {
   const {DOM} = require('react');
   const ClassSet = require('./util/class-set');
 
-  const WebViewer = Component('WebViewer', ({item: webViewerCursor, onOpen, onClose}) => {
+  const WebViewer = Component('WebViewer', ({item: webViewerCursor}, {onOpen, onClose}) => {
 
     // Do not render anything unless viewer has any `uri`
     if (!webViewerCursor.get('uri')) return null;
     return IFrame({
       className: ClassSet({
-        frame: true,
-        'flex-1': true,
+        'iframes-frame': true,
         webviewer: true,
         contentoverflows: webViewerCursor.get('contentOverflows')
       }),
@@ -73,8 +72,6 @@ define((require, exports, module) => {
     isLoading: true,
     isConnecting: true,
     startLoadingTime: performance.now(),
-    progress: 0,
-    icons: null,
     icons: {},
     title: null,
     location: null,
@@ -94,7 +91,7 @@ define((require, exports, module) => {
     }
     return webViewerCursor.merge({
       isConnecting: false,
-      connectedAt: performance.now(),
+      endLoadingTime: performance.now(),
       readyState: 'loaded',
       isLoading: false
     });
@@ -103,9 +100,11 @@ define((require, exports, module) => {
   WebViewer.onTitleChange = webViewerCursor => event =>
     webViewerCursor.set('title', event.detail);
 
-  WebViewer.onLocationChange = webViewerCursor => event =>
-    webViewerCursor.merge(Object.assign({location: event.detail},
+  WebViewer.onLocationChange = webViewerCursor => event => {
+    webViewerCursor.merge(Object.assign({location: event.detail,
+                                        userInput: event.detail},
                                         getHardcodedColors(event.detail)));
+  }
 
   WebViewer.onIconChange = webViewerCursor => event =>
     webViewerCursor.setIn(['icons', event.detail.href], event.detail);
@@ -138,7 +137,9 @@ define((require, exports, module) => {
     }
   }
 
-  WebViewer.Deck = Deck(WebViewer);
+  // WebViewer deck will always inject frames by order of their id. That way
+  // no iframes will need to be removed / injected when order of tabs change.
+  WebViewer.Deck = Deck(WebViewer, item => item.get('id'));
   // Exports:
 
   exports.WebViewer = WebViewer;
