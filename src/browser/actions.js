@@ -10,9 +10,10 @@ define((require, exports, module) => {
   const {fromJS} = require('immutable');
   const {open} = require('./web-viewer/actions');
   const {select, active} = require('./deck/actions');
+  const {initDashboard} = require('./dashboard/actions');
   // TODO: Should be `const {version} = require('package.json`);` instead but require.js
   // does not supports that.
-  const version = '0.0.2';
+  const version = '0.0.3';
 
   const makeSearchURL = input =>
     `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
@@ -22,15 +23,6 @@ define((require, exports, module) => {
     url.isNotURL(input) ? makeSearchURL(input) :
     !url.hasScheme(input) ? `http://${input}` :
     input;
-
-  // Action takes state cursor for the web viewer and input location
-  // and navigates that webViewer to that location (if it's not valid
-  // url either normalizes it or converts to search). Optional `focus`
-  // can be passed as `false` to navigate to a url but not focus it.
-  const navigateTo = ({inputCursor, webViewerCursor}, location, focus=true) => {
-    inputCursor.set('value', null);
-    webViewerCursor.merge({uri: readInputURL(location), isFocused: focus});
-  }
 
   // We'll hard-code dashboard items for now.
   const dashboardItems = [
@@ -80,13 +72,15 @@ define((require, exports, module) => {
     // once #239 is resolved.
     input: {value: '', isFocused: false},
     tabStrip: {isActive: false},
-    dashboard: {items: dashboardItems},
+    dashboard: initDashboard({items: dashboardItems}),
     rfa: {id: -1},
     suggestions: {
       selectedIndex: -1,
       list: []
     },
-    webViewers: [open({isSelected: true,
+    webViewers: [open({id: "about:blank",
+                       isPinned: true,
+                       isSelected: true,
                        isActive: true,
                        isFocused: false})]
   });
@@ -112,7 +106,6 @@ define((require, exports, module) => {
 
   exports.makeSearchURL = makeSearchURL;
   exports.readInputURL = readInputURL;
-  exports.navigateTo = navigateTo;
   exports.focus = focusable => focusable.set('isFocused', true);
   exports.blur = focusable => focusable.set('isFocused', false);
   exports.select = editable => editable.set('selection', {all: true});
