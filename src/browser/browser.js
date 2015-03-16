@@ -17,13 +17,13 @@ define((require, exports, module) => {
   const {getDashboardThemePatch,
          readDashboardNavigationTheme} = require('./dashboard/actions');
   const {Element, Event, VirtualAttribute, Attribute} = require('./element');
+  const {select: selectField} = require('./editable');
   const {KeyBindings} = require('./keyboard');
   const {zoomIn, zoomOut, zoomReset, open,
          goBack, goForward, reload, stop, title} = require('./web-viewer/actions');
-  const {focus, showTabStrip, hideTabStrip, select: selectField,
-         readInputURL,
+  const {focus, showTabStrip, hideTabStrip, readInputURL, sendEventToChrome,
          writeSession, resetSession, resetSelected} = require('./actions');
-  const {indexOfSelected, indexOfActive, isActive, arrange,
+  const {indexOfSelected, indexOfActive, isActive,
          selectNext, selectPrevious, select, activate,
          reorder, reset, remove, insertBefore,
          isntPinned, isPinned} = require('./deck/actions');
@@ -107,11 +107,10 @@ define((require, exports, module) => {
   // This avoids code branching down the pipe that otherwise will
   // need to deal with 0 viewer & no active viewer case.
   const close = p => items =>
-    items.count() > 1 ? remove(items, p) :
-    items.set(0, open({isSelected: true, isActive: true}));
+    !isPinned(items.find(p)) ? remove(items, p) : items;
 
-  const closeTab = item =>
-    close(x => x.get('id') == item.get('id'));
+  const closeTab = id =>
+    close(x => x.get('id') == id);
 
 
   const edit = edit => cursor => cursor.update(edit);
@@ -122,8 +121,8 @@ define((require, exports, module) => {
   const switchTab = (items, to) =>
     to ? activate(select(items, to)) : items;
 
-  switchTab.toIndex = index => items => switchTab(items, arrange(items).get(index));
-  switchTab.toLast = items => switchTab(items, arrange(items).last());
+  switchTab.toIndex = index => items => switchTab(items, items.get(index));
+  switchTab.toLast = items => switchTab(items, items.last());
   switchTab.toDashboard = switchTab.toIndex(0);
 
 
@@ -163,7 +162,9 @@ define((require, exports, module) => {
 
   const onBrowserBinding = KeyBindings({
     'accel shift backspace': edit(resetSession),
-    'accel shift s': writeSession
+    'accel shift s': writeSession,
+    'accel u': root =>
+      root.cursor('webViewers').update(openTab(`data:application/json,${JSON.stringify(root, null, 2)}`))
   });
 
 
@@ -213,7 +214,7 @@ define((require, exports, module) => {
         showtabstrip: isTabStripVisible,
         scrollable: !inputCursor.get('isFocused') && !isTabStripVisible
       }),
-      onDocumentUnload: event => writeSession(immutableState),
+      onDocumentUnload: event => writeSession(immutableState.valueOf()),
       onDocumentFocus: event => immutableState.set('isDocumentFocused', true),
       onDocumentBlur: event => immutableState.set('isDocumentFocused', false),
       onDocumentKeyDown: compose(onNavigation(inputCursor),
@@ -248,7 +249,7 @@ define((require, exports, module) => {
         }, {
           onSelect: item => webViewersCursor.update(items => select(items, item)),
           onActivate: _ => webViewersCursor.update(items => activate(items)),
-          onClose: item => webViewersCursor.update(closeTab(item))
+          onClose: id => webViewersCursor.update(closeTab(id))
         })
       ]),
       Awesomebar({
@@ -288,7 +289,7 @@ define((require, exports, module) => {
         hidden: isDashboardActive,
         items: webViewersCursor
       }, {
-        onClose: item => webViewersCursor.update(closeTab(item)),
+        onClose: id => webViewersCursor.update(closeTab(id)),
         onOpen: uri => webViewersCursor.update(openTab(uri))
       })
     ]),
@@ -303,7 +304,7 @@ define((require, exports, module) => {
       DOM.div({
         key: 'appUpdateButton',
         className: 'appupdatebutton',
-        onClick: e => window.location.reload(true)
+        onClick: e => sendEventToChrome('clear-cache-and-reload')
       }, 'Apply')
     ])]);
   })
